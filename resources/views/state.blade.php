@@ -51,6 +51,18 @@
             </div>
             <button type="submit" class="btn btn-primary">Generate</button>
         </form>
+        <br>
+        @if (!empty($error))
+            <div class="alert alert-danger alert-block">
+            {!! $error !!}
+            </div>
+        @endif
+
+        @if (!empty($success))
+            <div class="alert alert-success">
+            {!! $success !!}
+            </div>
+        @endif
     </div>
 </div>
 </div>
