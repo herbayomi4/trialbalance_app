@@ -9,10 +9,22 @@
         @csrf
             <div class="form-group">
                 <label>Select File</label>
-                <input type="file" name="file">
+                <input type="file" name="file" required>
             </div>
             <button type="submit" class="btn btn-primary">Update</button>
         </form>
+        <br>
+        @if (!empty($error))
+            <div class="alert alert-danger alert-block">
+            {!! $error !!}
+            </div>
+        @endif
+
+        @if (!empty($success))
+            <div class="alert alert-success">
+            {!! $success !!}
+            </div>
+        @endif
     </div>
 </div>
 </div>
