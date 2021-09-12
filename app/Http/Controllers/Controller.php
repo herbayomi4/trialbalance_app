@@ -15,6 +15,7 @@ use DateTime;
 use Session;
 use App\BankwideTrialbalance;
 use App\BranchCodes;
+use Validator;
 
 class Controller extends BaseController
 {
@@ -28,52 +29,94 @@ class Controller extends BaseController
 
     public function tb (Request $request)
     {
-        $excel = new \PHPExcel();
+        $validator = Validator::make($request->all(),[
+            'file' => 'required|mimes:csv,xlsx,xls',
+        ])->validate();
         
+        $excel = new \PHPExcel();
+
         $excel = \PHPExcel_IOFactory::load($request->file('file'));
         
-        DB::table('bankwide_trialbalances')->delete();
         $excel->setActiveSheetIndex(0);
         $excel = $excel->getActiveSheet();
         $column_identifier = array("A", "B", "C", "D", "E", "F", "G", "H","I");
-        $row = $excel->getHighestRow();
-        //dd($row);
-            
+        $row = $excel->getHighestDataRow()-1;
+        $col = \PHPExcel_Cell::columnIndexFromString($excel->getHighestColumn());
+        //dd($col);
+            if ($excel->getCell($column_identifier[0]."1")->getValue() == "" || $excel->getCell($column_identifier[0]."2")->getValue() == "") {
+                return view('bankwide')->with('error', 'Whoops! It seems the file is empty. Please ensure you are uploading the right file');
+            }
+
+            if (strlen($excel->getCell($column_identifier[0]."2")->getValue()) < 5) {
+                return view('bankwide')->with('error', 'Whoops!!! Your first column should be the Ledger Class!');
+            }
+            if ($col != 9) {
+                return view('bankwide')->with('error', 'Whoops!!! Your file should have 9 columns!');
+            }
+        
+            DB::table('bankwide_trialbalances')->delete();
+            //dd($excel->getCell($column_identifier[0].'2')->getValue());
             for ($i=2; $i <= $row; $i++) { 
                 $table = new BankwideTrialbalance();
                 $table->class = $excel->getCell($column_identifier[0].$i)->getValue();
                 $table->date = $this->DateFormat($excel->getCell($column_identifier[1].$i)->getValue());
                 $table->curr_code = $excel->getCell($column_identifier[2].$i)->getValue();
                 $table->bra_code = $excel->getCell($column_identifier[3].$i)->getValue();
-                $table->branch_name = $excel->getCell($column_identifier[4].$i)->getValue();
+                $table->led_code = $excel->getCell($column_identifier[4].$i)->getValue();
                 $table->state = $excel->getCell($column_identifier[5].$i)->getValue();
-                $table->led_code = $excel->getCell($column_identifier[6].$i)->getValue();
+                $table->branch_name = $excel->getCell($column_identifier[6].$i)->getValue();
                 $table->description = $excel->getCell($column_identifier[7].$i)->getValue();
                 $table->amount = $excel->getCell($column_identifier[8].$i)->getValue();
+
+                if ($excel->getCell($column_identifier[0].$i)->getValue() == "") {
+                break;
+                }
                 $table->save();
+                
             }
-            return redirect()->back()->with('success', 'Upload of Trial Balance was Successful');   
+           return view('bankwide')->with('success', 'SUCCESS! Upload of Trial Balance was successful');   
     }
 
     public function sb (Request $request)
     {
+        $validator = Validator::make($request->all(),[
+            'file' => 'required|mimes:csv,xlsx,xls',
+        ])->validate();
+
         $excel = new \PHPExcel();
+        
         $excel = \PHPExcel_IOFactory::load($request->file('file'));
         
-        DB::table('branch_codes')->delete();
         $excel->setActiveSheetIndex(0);
         $excel = $excel->getActiveSheet();
         $column_identifier = array("A", "B");
-        $row = $excel->getHighestRow();
-        //dd($row);
-            
+        $row = $excel->getHighestRow()-1;
+        $col = \PHPExcel_Cell::columnIndexFromString($excel->getHighestColumn());
+        //dd($row);        
+        
+        if ($excel->getCell($column_identifier[0]."1")->getValue() == "" || $excel->getCell($column_identifier[0]."2")->getValue() == "") {
+            return view('branches')->with('error', 'Whoops!!! It seems the file is empty. Please ensure you are uploading the right file.');
+        }
+        if (strlen($excel->getCell($column_identifier[0]."2")->getValue()) != 3) {
+            return view('branches')->with('error', 'Whoops!!! Your first column should be the Branch Code!');
+        }
+        if ($col != 2) {
+            return view('branches')->with('error', 'Whoops!!! Your file should have two columns: Branch Code and State!');
+        }
+
+        DB::table('branch_codes')->delete();
+
             for ($i=2; $i <= $row; $i++) { 
                 $table = new BranchCodes();
-                $table->state = $excel->getCell($column_identifier[0].$i)->getValue();
-                $table->bra_code = $excel->getCell($column_identifier[1].$i)->getValue();
+                $table->bra_code = $excel->getCell($column_identifier[0].$i)->getValue();
+                $table->state = $excel->getCell($column_identifier[1].$i)->getValue();
+
+                if ($excel->getCell($column_identifier[0].$i)->getValue() == "") {
+                break;
+                }
                 $table->save();
             }
-        return view('welcomme')->with('message',$row.'rows of data was successfully uploaded!');
+        return view('branches')->with('success','SUCCESS! Upload of Branch List was Successful');
 
     }
 
@@ -276,11 +319,10 @@ class Controller extends BaseController
         $sheetCount = $excel->getSheetCount();
         $lastSheet = $sheetCount - 1;
         $excel->removeSheetByIndex($lastSheet);
-
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        ob_get_clean();
+        header('Content-Type: application/vnd.ms-excel');
         header('Content-Disposition: attachment; filename= "'.$state.'".xlsx"');
         header('Cache-Control: max-age=0');
-        //ob_end_clean();
         $file = \PHPExcel_IOFactory::createWriter($excel, 'Excel2007');
         $file->setPreCalculateFormulas(true);
         $file->save('php://output');
