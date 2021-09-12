@@ -14,6 +14,11 @@
 Route::get('/', function () {
     return view('bankwide');
 });
+
+Route::get('/bankwide', function () {
+    return view('bankwide');
+});
+
 Route::get('/welcome', function () {
     return view('welcome');
 });
